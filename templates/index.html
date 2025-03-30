@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Card Price Tracker</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        .card-image {
+            max-width: 100px;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .card-image:hover {
+            transform: scale(1.1);
+        }
+        .card-title {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        .price {
+            color: #2ecc71;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .card-link {
+            display: inline-block;
+            padding: 6px 12px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        .card-link:hover {
+            background-color: #2980b9;
+            color: white;
+            text-decoration: none;
+        }
+        .dataTables_wrapper { margin-top: 20px; }
+        table.dataTable thead th {
+            background-color: #f8f9fa;
+            color: #2c3e50;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+        }
+        table.dataTable tbody td {
+            padding: 12px 8px;
+            vertical-align: middle;
+        }
+        .dataTables_filter input,
+        .dataTables_length select {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 6px 12px;
+            margin-left: 8px;
+        }
+        .dataTables_info {
+            color: #6c757d;
+            padding-top: 12px;
+        }
+        .page-title {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+        #loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .error-message {
+            color: #dc3545;
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center page-title">Trading Card Price Tracker</h1>
+        
+        <div id="loading">Loading data...</div>
+        <div id="error-message" class="error-message"></div>
+        <div class="table-responsive">
+            <table id="cardTable" class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Price</th>
+                        <th>Link</th>
+                        <th>Image</th>
+                        <th>Sold Date</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script>
+        let dataTable;
+
+        function initializeDataTable(data) {
+            if (dataTable) {
+                dataTable.destroy();
+            }
+
+            // Function to parse price from VND string to number
+            function parsePrice(priceStr) {
+                // Remove 'VND' and any whitespace, then replace commas with empty string
+                return parseFloat(priceStr.replace(/[^\d,]/g, '').replace(/,/g, ''));
+            }
+
+            // Function to parse date string to timestamp for sorting
+            function parseDate(dateStr) {
+                if (!dateStr) return 0;
+                try {
+                    // Remove "Sold " prefix and split the remaining string
+                    const cleanDate = dateStr.replace('Sold ', '');
+                    
+                    // Parse the date string (format: "Mar 23, 2025")
+                    const date = new Date(cleanDate);
+                    
+                    // Check if date is valid
+                    if (isNaN(date.getTime())) {
+                        console.error('Invalid date:', dateStr);
+                        return 0;
+                    }
+                    
+                    return date.getTime();
+                } catch (e) {
+                    console.error('Error parsing date:', e);
+                    return 0;
+                }
+            }
+
+            dataTable = $('#cardTable').DataTable({
+                data: data,
+                columns: [
+                    { 
+                        data: 'Title',
+                        render: function(data) {
+                            return data ? `<span class="card-title">${data}</span>` : '';
+                        }
+                    },
+                    { 
+                        data: 'Price',
+                        type: 'num',
+                        render: function(data, type) {
+                            if (!data) return '';
+                            // For sorting, return the numeric value
+                            if (type === 'sort' || type === 'type') {
+                                return parsePrice(data);
+                            }
+                            // For display, return the formatted price
+                            return `<span class="price">${data}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'Link',
+                        render: function(data) {
+                            return data ? `<a href="${data}" target="_blank" class="card-link">View on eBay</a>` : '';
+                        }
+                    },
+                    { 
+                        data: 'Image Link',
+                        render: function(data, type, row) {
+                            return data ? `<img src="${data}" class="card-image" alt="${row.Title || ''}">` : '';
+                        }
+                    },
+                    {
+                        data: 'Sold Date',
+                        type: 'date',
+                        render: function(data, type) {
+                            if (!data) return '';
+                            // For sorting, return timestamp
+                            if (type === 'sort' || type === 'type') {
+                                return parseDate(data);
+                            }
+                            // For display, return the formatted date
+                            return `<span>${data}</span>`;
+                        }
+                    }
+                ],
+                pageLength: 10,
+                order: [[4, 'desc']], // Default sort by Sold Date descending (latest first)
+                responsive: true,
+                language: {
+                    search: "Search cards:",
+                    lengthMenu: "Show _MENU_ cards per page",
+                    info: "Showing _START_ to _END_ of _TOTAL_ cards",
+                    infoEmpty: "No cards found",
+                    emptyTable: "No data available"
+                },
+                processing: true,
+                deferRender: true
+            });
+        }
+
+        $(document).ready(function() {
+            $('#loading').show();
+
+            // Load initial data
+            $.ajax({
+                url: '/api/cards',
+                method: 'GET',
+                success: function(data) {
+                    $('#loading').hide();
+                    initializeDataTable(data);
+                },
+                error: function(xhr, status, error) {
+                    $('#loading').hide();
+                    $('#error-message').text('Error loading data: ' + error).show();
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

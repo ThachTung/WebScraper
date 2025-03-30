@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Card Price Tracker</title>
+    
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        .card-image {
+            max-width: 100px;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .card-image:hover {
+            transform: scale(1.1);
+        }
+        .card-title {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        .price {
+            color: #2ecc71;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .card-link {
+            display: inline-block;
+            padding: 6px 12px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        .card-link:hover {
+            background-color: #2980b9;
+            color: white;
+            text-decoration: none;
+        }
+        .dataTables_wrapper {
+            margin-top: 20px;
+        }
+        table.dataTable thead th {
+            background-color: #f8f9fa;
+            color: #2c3e50;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+        }
+        table.dataTable tbody td {
+            padding: 12px 8px;
+            vertical-align: middle;
+        }
+        .dataTables_filter input,
+        .dataTables_length select {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 6px 12px;
+            margin-left: 8px;
+        }
+        .dataTables_info {
+            color: #6c757d;
+            padding-top: 12px;
+        }
+        .page-title {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center page-title">Trading Card Price Tracker</h1>
+        
+        <div class="table-responsive">
+            <table id="cardTable" class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Price</th>
+                        <th>Link</th>
+                        <th>Image</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be loaded dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            // CSV data embedded directly
+            const csvData = [
+                {
+                    "Title": "TOPPS CHROME UEFA 2023-24 WARREN ZAIRE-EMERY /250 Pink Geometric REFRACTOR PSG",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146031558203",
+                    "Image Link": "https://i.ebayimg.com/images/g/exIAAOSwQYhm07h-/s-l500.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME UEFA JAPANESE 2023-24 WARREN ZAIRE-EMERY /125 PINK MOJO REFRACTOR",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146420586338",
+                    "Image Link": "https://i.ebayimg.com/images/g/DY0AAOSwMZxnulLW/s-l500.jpg"
+                },
+                {
+                    "Title": "TOPPS PSG TEAM SET 2022-23 WARREN ZAIRE-EMERY RC /250 GREEN REFRACTOR GOLD DRIP",
+                    "Price": "127,339.81 VND",
+                    "Link": "https://www.ebay.com/itm/146420610844",
+                    "Image Link": "https://i.ebayimg.com/images/g/rwMAAOSwHmdnsRzi/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS FINEST UEFA 2023-24 WARREN ZAIRE-EMERY /125 GREEN SPECKLE REFRACTOR PSG",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146350921999",
+                    "Image Link": "https://i.ebayimg.com/images/g/y4kAAOSwQv9nhwxM/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS JADE UEFA 2023-24 WARREN ZAIRE-EMERY /99 WHITE DRAGON REFRACTOR PSG",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146420586388",
+                    "Image Link": "https://i.ebayimg.com/images/g/7IEAAOSwxxlnulPJ/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS FINEST UEFA 2022-23 WARREN ZAIRE-EMERY RC /299 PURPLE REFRACTOR ROOKIES",
+                    "Price": "127,339.81 VND",
+                    "Link": "https://www.ebay.com/itm/146350921974",
+                    "Image Link": "https://i.ebayimg.com/images/g/kf4AAOSwzkFnhxBj/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME UEFA 2023-24 WARREN ZAIRE-EMERY /199 AQUA WAVE REFRACTOR PSG",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146334837176",
+                    "Image Link": "https://i.ebayimg.com/images/g/rMQAAOSw7GFnec2j/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME UEFA EURO 2024 WARREN ZAIRE-EMERY RC /175 PURPLE WAVE REFRACTOR",
+                    "Price": "127,339.81 VND",
+                    "Link": "https://www.ebay.com/itm/146435470279",
+                    "Image Link": "https://i.ebayimg.com/images/g/G3EAAOSw-Gdnw6Dj/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME UEFA JAPANESE 2023-24 WARREN ZAIRE-EMERY /125 PINK MOJO REFRACTOR",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146257858608",
+                    "Image Link": "https://i.ebayimg.com/images/g/up4AAOSwyVFnSdWT/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS FINEST UEFA 2023-24 WARREN ZAIRE-EMERY /199 PURPLE SHIMMER REFRACTOR PSG",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146420610852",
+                    "Image Link": "https://i.ebayimg.com/images/g/Mq4AAOSwDzhnsShl/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME UEFA JAPANESE 2023-24 WARREN ZAIRE-EMERY /150 YELLOW MOJO REFRACTOR",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146420586425",
+                    "Image Link": "https://i.ebayimg.com/images/g/0JoAAOSwzstnulKj/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS STADIUM CHROME UEFA 2023-24 WARREN ZAIRE-EMERY PINK RED REFRACTOR 1:2000",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146291083039",
+                    "Image Link": "https://i.ebayimg.com/images/g/cesAAOSw6uVnY2kz/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS STADIUM CHROME UEFA 2023-24 WARREN ZAIRE-EMERY /125 GREEN YELLOW REFRACTOR",
+                    "Price": "101,820.81 VND",
+                    "Link": "https://www.ebay.com/itm/146383482420",
+                    "Image Link": "https://i.ebayimg.com/images/g/AEkAAOSwbgtnoql~/s-l140.jpg"
+                },
+                {
+                    "Title": "2023-24 Immaculate Warren Zaire-Emery Gold #07/10 France",
+                    "Price": "306,228.00 VND",
+                    "Link": "https://www.ebay.com/itm/126986385042",
+                    "Image Link": "https://i.ebayimg.com/images/g/QfkAAeSwxfZnzzas/s-l140.jpg"
+                },
+                {
+                    "Title": "2023-24 Topps PSG Premium Warren Zaire-Emery Contra Emerald 6/30 France",
+                    "Price": "140,354.50 VND",
+                    "Link": "https://www.ebay.com/itm/365452550366",
+                    "Image Link": "https://i.ebayimg.com/images/g/hfkAAOSwvRZnz4y0/s-l140.jpg"
+                },
+                {
+                    "Title": "2022-23 Topps Jade Edition Warren Zaire-Emery Rookie RC Orange 18/25 France PSG",
+                    "Price": "1,020,760.00 VND",
+                    "Link": "https://www.ebay.com/itm/365452544568",
+                    "Image Link": "https://i.ebayimg.com/images/g/Y7kAAOSwcCRnz4vz/s-l140.jpg"
+                },
+                {
+                    "Title": "2023-24 Topps Finest X Total Football WARREN ZAIRE-EMERY Refractor Redemption",
+                    "Price": "25,263.81 VND",
+                    "Link": "https://www.ebay.com/itm/306160396689",
+                    "Image Link": "https://i.ebayimg.com/images/g/y-cAAOSw2ntnyRgN/s-l140.jpg"
+                },
+                {
+                    "Title": "2023-24 Panini Obsidian Warren Zaire-Emery #167 Red Pulsar /49",
+                    "Price": "165,044.13 VND",
+                    "Link": "https://www.ebay.com/itm/205197777138",
+                    "Image Link": "https://i.ebayimg.com/images/g/70cAAOSwDGhndIQj/s-l140.jpg"
+                },
+                {
+                    "Title": "Warren Zaire Emery Auto /99 Topps Inception 2023/24 PSG Rookie Card RC No PSA",
+                    "Price": "846,744.66 VND",
+                    "Link": "https://www.ebay.com/itm/356659769333",
+                    "Image Link": "https://i.ebayimg.com/images/g/Kq8AAeSwOPxn0cZm/s-l140.jpg"
+                },
+                {
+                    "Title": "2023-24 Panini Obsidian Warren Zaire-Emery Red Equinox /10 France PSG",
+                    "Price": "495,132.40 VND",
+                    "Link": "https://www.ebay.com/itm/205197778885",
+                    "Image Link": "https://i.ebayimg.com/images/g/Ry0AAOSwvqxndISb/s-l140.jpg"
+                },
+                {
+                    "Title": "Topps Match Attax EXTRA 2024/25 - Warren Zaire-Emery Jersey Relic Card JR-WZE",
+                    "Price": "726,194.18 VND",
+                    "Link": "https://www.ebay.com/itm/405604488892",
+                    "Image Link": "https://i.ebayimg.com/images/g/s30AAOSwo0lnxrWi/s-l140.jpg"
+                },
+                {
+                    "Title": "Warren Zaire-Emery 2022-23 Topps Merlin UEFA Rookie Auto Refractor",
+                    "Price": "395,544.50 VND",
+                    "Link": "https://www.ebay.com/itm/376056609761",
+                    "Image Link": "https://i.ebayimg.com/images/g/Gk0AAOSweaFnzmmj/s-l140.jpg"
+                },
+                {
+                    "Title": "2022-23 Topps Chrome UEFA CC Warren Zaire-Emery RC Auto Gold 38/50 CA-WZ",
+                    "Price": "5,103,544.81 VND",
+                    "Link": "https://www.ebay.com/itm/316341390322",
+                    "Image Link": "https://i.ebayimg.com/images/g/04kAAeSwL3Vnt3ki/s-l140.jpg"
+                },
+                {
+                    "Title": "2022-23 Topps Stadium Chrome Warren Zaire-Emery Rookie RC Sepia 29/75 France PSG",
+                    "Price": "25,519.00 VND",
+                    "Link": "https://www.ebay.com/itm/365450335060",
+                    "Image Link": "https://i.ebayimg.com/images/g/5CUAAOSwwkdnzkKi/s-l140.jpg"
+                },
+                {
+                    "Title": "Warren Zaire-Emery 2022-2023 Topps Carnaval UCC Rookie Orange /25 PSA 9",
+                    "Price": "3,827,850.00 VND",
+                    "Link": "https://www.ebay.com/itm/356617417028",
+                    "Image Link": "https://i.ebayimg.com/images/g/DZwAAeSw~Z5nwQSZ/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS UCC CHROME JAPAN 2023/24 WARREN ZAIRE-EMERY PSG YELLOW PARALLEL 078/150",
+                    "Price": "40,930.94 VND",
+                    "Link": "https://www.ebay.com/itm/156765049493",
+                    "Image Link": "https://i.ebayimg.com/images/g/O9UAAOSwFeZnyJ4m/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS UCC CHROME JAPAN 2023/24 WARREN ZAIRE-EMERY PSG BLUE PARALLEL 40/75",
+                    "Price": "41,261.03 VND",
+                    "Link": "https://www.ebay.com/itm/156765049485",
+                    "Image Link": "https://i.ebayimg.com/images/g/a70AAOSw4w9nyJ-d/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS UCC CHROME JAPAN 2023/24 WARREN ZAIRE-EMERY PSG GREEN PARALLEL 54/99",
+                    "Price": "41,261.03 VND",
+                    "Link": "https://www.ebay.com/itm/156765049454",
+                    "Image Link": "https://i.ebayimg.com/images/g/TL4AAOSwCv1nyJ9K/s-l140.jpg"
+                },
+                {
+                    "Title": "2023-24 Topps Chrome UEFA Warren Zaire-Emery Green Wave Future Stars Auto /399",
+                    "Price": "331,491.81 VND",
+                    "Link": "https://www.ebay.com/itm/376011771833",
+                    "Image Link": "https://i.ebayimg.com/images/g/0RYAAeSwc-tnt--I/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME UEFA 2024-25 WARREN ZAIRE-EMERY /50 GOLD REFRACTOR PSG",
+                    "Price": "57,417.75 VND",
+                    "Link": "https://www.ebay.com/itm/146437658959",
+                    "Image Link": "https://i.ebayimg.com/images/g/hZ4AAOSwlyFnzNpC/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME UEFA 2023-24 WARREN ZAIRE-EMERY /50 GOLD REFRACTOR PSG",
+                    "Price": "82,936.75 VND",
+                    "Link": "https://www.ebay.com/itm/146437651580",
+                    "Image Link": "https://i.ebayimg.com/images/g/n98AAOSw-45nzNjM/s-l140.jpg"
+                },
+                {
+                    "Title": "PANINI DONRUSS FIFA 2024-25 WARREN ZAIRE-EMERY /49 BLUE REFRACTOR FRANCE",
+                    "Price": "50,782.81 VND",
+                    "Link": "https://www.ebay.com/itm/146437648418",
+                    "Image Link": "https://i.ebayimg.com/images/g/yBwAAOSwM7BnzNgE/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME SAPPHIRE UEFA 2023-24 WARREN ZAIRE-EMERY /75 YELLOW REFRACTOR PSG",
+                    "Price": "63,797.50 VND",
+                    "Link": "https://www.ebay.com/itm/146437631429",
+                    "Image Link": "https://i.ebayimg.com/images/g/xocAAOSwJr9nzNQY/s-l140.jpg"
+                },
+                {
+                    "Title": "2023-24 Topps Crystal Premium UEFA Warren Zaire-Emery Die Cut Black 37/50 PSG",
+                    "Price": "25,263.81 VND",
+                    "Link": "https://www.ebay.com/itm/197088088016",
+                    "Image Link": "https://i.ebayimg.com/images/g/6XwAAOSwmr1nZhw7/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME SAPPHIRE UEFA 2023-24 WARREN ZAIRE-EMERY /25 ORANGE REFRACTOR PSG",
+                    "Price": "216,911.50 VND",
+                    "Link": "https://www.ebay.com/itm/146437631272",
+                    "Image Link": "https://i.ebayimg.com/images/g/h8wAAOSw2dVnzNQN/s-l140.jpg"
+                },
+                {
+                    "Title": "2023-24 Topps Inception Warren Zaire-Emery Succession 17/75 PSG",
+                    "Price": "140,354.50 VND",
+                    "Link": "https://www.ebay.com/itm/197088088017",
+                    "Image Link": "https://i.ebayimg.com/images/g/T60AAOSwjK9nx9jK/s-l140.jpg"
+                },
+                {
+                    "Title": "2022-23 Topps Stadium Club Chrome Warren Zaire-Emery Night Vision Prizm RC /199",
+                    "Price": "25,263.81 VND",
+                    "Link": "https://www.ebay.com/itm/197088088940",
+                    "Image Link": "https://i.ebayimg.com/images/g/xOcAAOSw~RRm0eU~/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS CHROME PSG TEAM SET 2022-23 WARREN ZAIRE-EMERY RC /99 PSG",
+                    "Price": "140,354.50 VND",
+                    "Link": "https://www.ebay.com/itm/146437622003",
+                    "Image Link": "https://i.ebayimg.com/images/g/hJIAAOSwcAZnzNK4/s-l140.jpg"
+                },
+                {
+                    "Title": "TOPPS PREMIUM TEAM SET 2023-24 WARREN ZAIRE-EMERY /49 SILVER BLACK PSG",
+                    "Price": "50,782.81 VND",
+                    "Link": "https://www.ebay.com/itm/146437618724",
+                    "Image Link": "https://i.ebayimg.com/images/g/ezsAAOSwvD5nzNFo/s-l140.jpg"
+                },
+                {
+                    "Title": "2023-24 Topps Chrome UEFA Euro Warren Zaire-Emery Green Ray Wave Refractor #54",
+                    "Price": "25,263.81 VND",
+                    "Link": "https://www.ebay.com/itm/126982970905",
+                    "Image Link": "https://i.ebayimg.com/images/g/v0oAAeSw~Nlnt2AV/s-l140.jpg"
+                }
+            ];
+            
+            $('#cardTable').DataTable({
+                data: csvData,
+                columns: [
+                    { 
+                        data: 'Title',
+                        render: function(data) {
+                            return `<span class="card-title">${data}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'Price',
+                        render: function(data) {
+                            return `<span class="price">${data}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'Link',
+                        render: function(data) {
+                            return `<a href="${data}" target="_blank" class="card-link">View on eBay</a>`;
+                        }
+                    },
+                    { 
+                        data: 'Image Link',
+                        render: function(data, type, row) {
+                            return `<img src="${data}" class="card-image" alt="${row.Title}">`;
+                        }
+                    }
+                ],
+                pageLength: 10,
+                order: [[0, 'asc']],
+                responsive: true,
+                language: {
+                    search: "Search cards:",
+                    lengthMenu: "Show _MENU_ cards per page",
+                    info: "Showing _START_ to _END_ of _TOTAL_ cards",
+                    infoEmpty: "No cards found",
+                    emptyTable: "No data available"
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
