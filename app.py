@@ -7,7 +7,7 @@ app = Flask(__name__)
 def read_csv():
     cards = []
     # Get the absolute path to the CSV file
-    csv_path = os.path.join('soldprice', 'soldprice', 'all_players.csv')
+    csv_path = os.path.join('soldprice', 'soldprice', 'kevin_agudelo.csv')
     
     try:
         if not os.path.exists(csv_path):

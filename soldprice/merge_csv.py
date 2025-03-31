@@ -23,7 +23,7 @@ def merge_csv_files(input_dir, output_file):
     print(f"Merged {len(csv_files)} files into {output_file} with {len(merged_df)} total records.")
 
 def main():
-    input_dir = 'soldprice'
+    input_dir = 'soldprice/basedata'
     output_file = 'soldprice/merged_all_players.csv'
     merge_csv_files(input_dir, output_file)
 

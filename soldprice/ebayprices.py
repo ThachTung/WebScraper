@@ -2,6 +2,20 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import os
+import time
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# Define retry strategy
+retry_strategy = Retry(
+    total=3,  # number of retries
+    backoff_factor=1,  # wait 1, 2, 4 seconds between retries
+    status_forcelist=[500, 502, 503, 504]  # HTTP status codes to retry on
+)
+adapter = HTTPAdapter(max_retries=retry_strategy)
+session = requests.Session()
+session.mount("http://", adapter)
+session.mount("https://", adapter)
 
 # Define the eBay filters dictionary
 ebay_filters = {
@@ -65,7 +79,7 @@ ebay_filters = {
 def read_player_names():
     """Read player names from player.csv file"""
     try:
-        player_df = pd.read_csv('player.csv', header=None, names=['player_name'])
+        player_df = pd.read_csv('soldprice/Panini_player_names.csv', header=None, names=['player_name'])
         return player_df['player_name'].tolist()
     except Exception as e:
         print(f"Error reading player.csv: {e}")
@@ -75,7 +89,7 @@ def scrape_ebay_listings(player_name):
     """Scrape eBay listings for a specific player"""
     # Define the base URL for the eBay search
     url = "https://www.ebay.com/sch/i.html"
-    #https://www.ebay.com/sch/i.html?_nkw=soccer+card&_sacat=0&_from=R40&LH_Sold=1&LH_Complete=1&_ipg=240&rt=nc&_pgn=75
+    
     # Define the query parameters for the search request
     params = {
         '_from': 'R40',
@@ -93,35 +107,61 @@ def scrape_ebay_listings(player_name):
     page_number = 0
     
     while True:
-        page_number += 1
-        print(f'Scraping page {page_number} for {player_name}')
-        
-        params['_pgn'] = page_number
-        response = requests.get(url, params=params)
-        html_content = response.text
-        
-        soup = BeautifulSoup(html_content, 'html.parser')
-        next_button = soup.find('button', class_='pagination__next', type='next')
-        items = soup.find_all('div', class_='s-item__wrapper clearfix')
-        
-        # Extract Listings
-        for item in items[2:]:
-            title = item.find('div', class_='s-item__title').text
-            price = item.find('span', class_='s-item__price').text
-            link = item.find('a', class_='s-item__link')['href'].split('?')[0]
-            image_url = item.find('div', class_='s-item__image-wrapper image-treatment').find('img').get('src', 'No image URL')
-            solddate = item.find('span', class_='s-item__caption--signal POSITIVE').text
+        try:
+            page_number += 1
+            print(f'Scraping page {page_number} for {player_name}')
             
-            items_list.append({
-                'Title': title,
-                'Price': price,
-                'Link': link,
-                'Image Link': image_url,
-                'Sold Date': solddate
-            })
-        
-        #if next_button and next_button.get('aria-disabled') == 'true':
-            #break
+            params['_pgn'] = page_number
+            
+            # Add delay between requests
+            time.sleep(2)  # Wait 2 seconds between requests
+            
+            # Make request with increased timeout and session
+            response = session.get(url, params=params, timeout=30)
+            response.raise_for_status()  # Raise an exception for bad status codes
+            
+            html_content = response.text
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            next_button = soup.find('button', class_='pagination__next', type='next')
+            items = soup.find_all('div', class_='s-item__wrapper clearfix')
+            
+            if not items:  # If no items found, break the loop
+                print(f"No more items found for {player_name}")
+                break
+            
+            # Extract Listings
+            for item in items[2:]:
+                try:
+                    title = item.find('div', class_='s-item__title')
+                    price = item.find('span', class_='s-item__price')
+                    link = item.find('a', class_='s-item__link')
+                    image_div = item.find('div', class_='s-item__image-wrapper image-treatment')
+                    solddate = item.find('span', class_='s-item__caption--signal POSITIVE')
+                    
+                    # Check if all required elements exist
+                    if all([title, price, link, image_div, solddate]):
+                        items_list.append({
+                            'Title': title.text,
+                            'Price': price.text,
+                            'Link': link['href'].split('?')[0],
+                            'Image Link': image_div.find('img').get('src', 'No image URL'),
+                            'Sold Date': solddate.text
+                        })
+                except AttributeError as e:
+                    print(f"Error processing item: {e}")
+                    continue
+            
+            if next_button and next_button.get('aria-disabled') == 'true':
+                break
+                
+        except requests.RequestException as e:
+            print(f"Error fetching page {page_number} for {player_name}: {e}")
+            if page_number > 1:  # If we've already got some data, continue with what we have
+                break
+            else:
+                time.sleep(5)  # Wait longer before retrying the first page
+                continue
     
     return items_list
 
@@ -138,20 +178,35 @@ def main():
     # Process each player
     all_items = []
     for player_name in player_names:
-        print(f"\nProcessing player: {player_name}")
-        player_items = scrape_ebay_listings(player_name)
-        all_items.extend(player_items)
-        
-        # Save individual player data
-        player_df = pd.DataFrame(player_items)
-        player_filename = f"soldprice/{player_name.replace(' ', '_').lower()}.csv"
-        player_df.to_csv(player_filename, index=False)
-        print(f"Saved {len(player_items)} listings for {player_name} to {player_filename}")
+        try:
+            print(f"\nProcessing player: {player_name}")
+            player_items = scrape_ebay_listings(player_name)
+            
+            if player_items:  # Only process if we got some items
+                all_items.extend(player_items)
+                
+                # Save individual player data
+                player_df = pd.DataFrame(player_items)
+                player_filename = f"soldprice/{player_name.replace(' ', '_').lower()}.csv"
+                player_df.to_csv(player_filename, index=False)
+                print(f"Saved {len(player_items)} listings for {player_name} to {player_filename}")
+            else:
+                print(f"No items found for {player_name}")
+                
+            # Add delay between players
+            time.sleep(3)
+            
+        except Exception as e:
+            print(f"Error processing player {player_name}: {e}")
+            continue
     
     # Save combined data
-    all_items_df = pd.DataFrame(all_items)
-    all_items_df.to_csv('soldprice/all_players.csv', index=False)
-    print(f"\nSaved {len(all_items)} total listings to soldprice/all_players.csv")
+    if all_items:
+        all_items_df = pd.DataFrame(all_items)
+        all_items_df.to_csv('soldprice/all_players.csv', index=False)
+        print(f"\nSaved {len(all_items)} total listings to soldprice/all_players.csv")
+    else:
+        print("No items were collected successfully")
 
 if __name__ == "__main__":
     main()
