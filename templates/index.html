@@ -64,13 +64,6 @@
             padding: 12px 8px;
             vertical-align: middle;
         }
-        .dataTables_filter input,
-        .dataTables_length select {
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 6px 12px;
-            margin-left: 8px;
-        }
         .dataTables_info {
             color: #6c757d;
             padding-top: 12px;
@@ -110,7 +103,6 @@
                         <th>Sold Date</th>
                     </tr>
                 </thead>
-                <tbody></tbody>
             </table>
         </div>
     </div>
@@ -120,43 +112,57 @@
     <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
     <script>
         let dataTable;
+        const priceCache = new Map();
+        const dateCache = new Map();
 
-        function initializeDataTable(data) {
+        function parsePrice(priceStr) {
+            if (!priceStr) return 0;
+            if (priceCache.has(priceStr)) {
+                return priceCache.get(priceStr);
+            }
+            const value = parseFloat(priceStr.replace(/[^\d,]/g, '').replace(/,/g, ''));
+            priceCache.set(priceStr, value);
+            return value;
+        }
+
+        function parseDate(dateStr) {
+            if (!dateStr) return 0;
+            if (dateCache.has(dateStr)) {
+                return dateCache.get(dateStr);
+            }
+            try {
+                const cleanDate = dateStr.replace('Sold ', '');
+                const date = new Date(cleanDate);
+                const timestamp = isNaN(date.getTime()) ? 0 : date.getTime();
+                dateCache.set(dateStr, timestamp);
+                return timestamp;
+            } catch (e) {
+                console.error('Error parsing date:', e);
+                dateCache.set(dateStr, 0);
+                return 0;
+            }
+        }
+
+        function initializeDataTable() {
             if (dataTable) {
                 dataTable.destroy();
             }
 
-            // Function to parse price from VND string to number
-            function parsePrice(priceStr) {
-                // Remove 'VND' and any whitespace, then replace commas with empty string
-                return parseFloat(priceStr.replace(/[^\d,]/g, '').replace(/,/g, ''));
-            }
-
-            // Function to parse date string to timestamp for sorting
-            function parseDate(dateStr) {
-                if (!dateStr) return 0;
-                try {
-                    // Remove "Sold " prefix and split the remaining string
-                    const cleanDate = dateStr.replace('Sold ', '');
-                    
-                    // Parse the date string (format: "Mar 23, 2025")
-                    const date = new Date(cleanDate);
-                    
-                    // Check if date is valid
-                    if (isNaN(date.getTime())) {
-                        console.error('Invalid date:', dateStr);
-                        return 0;
-                    }
-                    
-                    return date.getTime();
-                } catch (e) {
-                    console.error('Error parsing date:', e);
-                    return 0;
-                }
-            }
-
             dataTable = $('#cardTable').DataTable({
-                data: data,
+                processing: true,
+                serverSide: true,
+                deferRender: true,
+                searching: false,
+                ajax: {
+                    url: '/api/cards',
+                    type: 'POST',
+                    error: function(xhr, error, thrown) {
+                        $('#error-message').text('Error loading data: ' + (error || 'Unknown error occurred')).show();
+                        console.error('DataTables error:', error);
+                        console.error('Server response:', xhr.responseText);
+                        setTimeout(() => $('#error-message').fadeOut(), 5000);
+                    }
+                },
                 columns: [
                     { 
                         data: 'Title',
@@ -166,14 +172,11 @@
                     },
                     { 
                         data: 'Price',
-                        type: 'num',
                         render: function(data, type) {
                             if (!data) return '';
-                            // For sorting, return the numeric value
-                            if (type === 'sort' || type === 'type') {
+                            if (type === 'sort') {
                                 return parsePrice(data);
                             }
-                            // For display, return the formatted price
                             return `<span class="price">${data}</span>`;
                         }
                     },
@@ -186,54 +189,47 @@
                     { 
                         data: 'Image Link',
                         render: function(data, type, row) {
-                            return data ? `<img src="${data}" class="card-image" alt="${row.Title || ''}">` : '';
+                            return data ? `<img src="${data}" loading="lazy" class="card-image" alt="${row.Title || ''}">` : '';
                         }
                     },
                     {
                         data: 'Sold Date',
-                        type: 'date',
                         render: function(data, type) {
                             if (!data) return '';
-                            // For sorting, return timestamp
-                            if (type === 'sort' || type === 'type') {
+                            if (type === 'sort') {
                                 return parseDate(data);
                             }
-                            // For display, return the formatted date
                             return `<span>${data}</span>`;
                         }
                     }
                 ],
-                pageLength: 10,
-                order: [[4, 'desc']], // Default sort by Sold Date descending (latest first)
+                pageLength: 25,
+                order: [[4, 'desc']],
                 responsive: true,
+                deferRender: true,
+                scrollY: 600,
+                scrollCollapse: true,
                 language: {
-                    search: "Search cards:",
-                    lengthMenu: "Show _MENU_ cards per page",
                     info: "Showing _START_ to _END_ of _TOTAL_ cards",
                     infoEmpty: "No cards found",
-                    emptyTable: "No data available"
+                    emptyTable: "No data available",
+                    processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>'
                 },
-                processing: true,
-                deferRender: true
+                initComplete: function() {
+                    $('#loading').hide();
+                    
+                    // Clear caches periodically to prevent memory bloat
+                    setInterval(() => {
+                        if (priceCache.size > 1000) priceCache.clear();
+                        if (dateCache.size > 1000) dateCache.clear();
+                    }, 300000); // Clear every 5 minutes if needed
+                }
             });
         }
 
         $(document).ready(function() {
             $('#loading').show();
-
-            // Load initial data
-            $.ajax({
-                url: '/api/cards',
-                method: 'GET',
-                success: function(data) {
-                    $('#loading').hide();
-                    initializeDataTable(data);
-                },
-                error: function(xhr, status, error) {
-                    $('#loading').hide();
-                    $('#error-message').text('Error loading data: ' + error).show();
-                }
-            });
+            initializeDataTable();
         });
     </script>
 </body>
