@@ -25,51 +25,22 @@ def remove_duplicates(df):
     print(f"Removed {removed_count} exact duplicate lines")
     return df_no_duplicates
 
-def check_product_name_similarity_batch(titles, product_names, threshold=0.4):
-    """Vectorized check for product name similarity"""
-    # Convert titles to lowercase for case-insensitive matching
-    titles_lower = [t.lower() for t in titles]
-    product_names_lower = [p.lower() for p in product_names]
-    
-    # Create a boolean mask for matching titles
-    matches = np.zeros(len(titles), dtype=bool)
-    
-    # First try quick substring matching
-    for product_name in product_names_lower:
-        matches |= np.array([product_name in title for title in titles_lower])
-    
-    # For unmatched titles, try similarity matching
-    unmatched_indices = np.where(~matches)[0]
-    if len(unmatched_indices) > 0:
-        for i in unmatched_indices:
-            title = titles_lower[i]
-            for product_name in product_names_lower:
-                if string_similarity(title, product_name) >= threshold:
-                    matches[i] = True
-                    break
-    
-    return matches
-
-def find_similar_groups(df, product_names, similarity_threshold=0.8, batch_size=1000):
+def find_similar_groups(df, similarity_threshold=0.8, batch_size=1000):
     """Find groups of similar titles using batched processing"""
     titles = df['Title'].tolist()
     similar_groups = []
     processed_indices = set()
     
-    # First, filter titles that match product names
-    matching_mask = check_product_name_similarity_batch(titles, product_names)
-    matching_indices = np.where(matching_mask)[0]
-    
-    # Process matching titles in batches
-    for i in matching_indices:
+    # Process all titles in batches
+    for i in range(len(titles)):
         if i in processed_indices:
             continue
             
         current_group = [i]
         processed_indices.add(i)
         
-        # Compare with remaining unprocessed matching titles
-        remaining_indices = [j for j in matching_indices if j > i and j not in processed_indices]
+        # Compare with remaining unprocessed titles
+        remaining_indices = [j for j in range(i + 1, len(titles)) if j not in processed_indices]
         
         # Process in batches
         for j in range(0, len(remaining_indices), batch_size):
@@ -104,16 +75,14 @@ def rearrange_csv(df, similar_groups):
 
 def process_csv_file(args):
     """Process a single CSV file with optimized operations"""
-    csv_file, product_names_file = args
+    csv_file, _ = args
     try:
         player_name = os.path.splitext(os.path.basename(csv_file))[0].replace('_', ' ')
         print(f"\nProcessing: {os.path.basename(csv_file)}")
         print(f"Player name: {player_name}")
         
-        # Read CSV files efficiently
+        # Read CSV file efficiently
         df = pd.read_csv(csv_file, dtype={'Title': str})
-        product_names_df = pd.read_csv(product_names_file, dtype={'Filename': str})
-        product_names = product_names_df['Filename'].tolist()
         
         original_len = len(df)
         print(f"Original file has {original_len} lines")
@@ -129,7 +98,7 @@ def process_csv_file(args):
         filtered_df = remove_duplicates(filtered_df)
         
         # Find and group similar items
-        similar_groups = find_similar_groups(filtered_df, product_names)
+        similar_groups = find_similar_groups(filtered_df)
         
         # Rearrange and save
         final_df = rearrange_csv(filtered_df, similar_groups)
@@ -156,12 +125,6 @@ def main():
     
     # Define paths for CSV files
     csv_pattern = os.path.join(script_dir, 'data', 'scrapeddata', '*.csv')
-    product_names_file = os.path.join(script_dir, 'data', 'Product_names.csv')
-    
-    # Check if Product_names.csv exists
-    if not os.path.exists(product_names_file):
-        print("Product_names.csv not found. Please ensure it exists in the data directory.")
-        return
     
     csv_files = glob.glob(csv_pattern)
     
@@ -175,7 +138,7 @@ def main():
     max_workers = os.cpu_count() or 4  # Use number of CPU cores
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Create tasks for parallel processing
-        tasks = [(csv_file, product_names_file) for csv_file in csv_files]
+        tasks = [(csv_file, None) for csv_file in csv_files]
         
         # Submit all tasks and process them in parallel
         futures = [executor.submit(process_csv_file, task) for task in tasks]

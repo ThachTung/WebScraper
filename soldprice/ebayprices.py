@@ -164,7 +164,7 @@ def scrape_region_pages(player_name, region_name, region_params, session, start_
                 items_list.extend(items_data)
                 print(f"Scraped {len(items_data)} cards from page {page_number} for {player_name} in {region_name}")
                 success = True
-            else:
+    else:
                 retry_count += 1
                 if retry_count < max_retries:
                     time.sleep(1)  # Reduced sleep time
