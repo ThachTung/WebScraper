@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Card Price Tracker</title>
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+    <title>Soccer Card Data</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -19,54 +17,6 @@
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
             margin-top: 20px;
-        }
-        .card-image {
-            max-width: 100px;
-            height: auto;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-        }
-        .card-image:hover {
-            transform: scale(1.1);
-        }
-        .card-title {
-            font-weight: 500;
-            color: #2c3e50;
-        }
-        .price {
-            color: #2ecc71;
-            font-weight: bold;
-            font-size: 1.1em;
-        }
-        .card-link {
-            display: inline-block;
-            padding: 6px 12px;
-            background-color: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            transition: background-color 0.2s;
-        }
-        .card-link:hover {
-            background-color: #2980b9;
-            color: white;
-            text-decoration: none;
-        }
-        .dataTables_wrapper { margin-top: 20px; }
-        table.dataTable thead th {
-            background-color: #f8f9fa;
-            color: #2c3e50;
-            font-weight: 600;
-            border-bottom: 2px solid #dee2e6;
-        }
-        table.dataTable tbody td {
-            padding: 12px 8px;
-            vertical-align: middle;
-        }
-        .dataTables_info {
-            color: #6c757d;
-            padding-top: 12px;
         }
         .page-title {
             color: #2c3e50;
@@ -84,152 +34,139 @@
             padding: 20px;
             display: none;
         }
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .search-input {
+            padding: 8px 15px;
+            border: 2px solid #4CAF50;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 300px;
+            max-width: 100%;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #45a049;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+        }
+        .files-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+        .file-button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .file-button:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+        }
+        .file-button.hidden {
+            display: none;
+        }
+        .no-results {
+            text-align: center;
+            color: #6c757d;
+            padding: 20px;
+            font-size: 16px;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 class="text-center page-title">Trading Card Price Tracker</h1>
+        <h1 class="text-center page-title">Soccer Card Data</h1>
         
-        <div id="loading">Loading data...</div>
-        <div id="error-message" class="error-message"></div>
-        <div class="table-responsive">
-            <table id="cardTable" class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Price</th>
-                        <th>Link</th>
-                        <th>Image</th>
-                        <th>Sold Date</th>
-                    </tr>
-                </thead>
-            </table>
+        <div class="search-container">
+            <input type="text" 
+                   class="search-input" 
+                   placeholder="Search players..." 
+                   id="searchInput"
+                   autocomplete="off">
         </div>
+
+        <div id="filesContainer" class="files-container">
+            <div id="loading">Loading files...</div>
+            <div id="error-message" class="error-message"></div>
+        </div>
+        <div id="noResults" class="no-results">No players found matching your search.</div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
     <script>
-        let dataTable;
-        const priceCache = new Map();
-        const dateCache = new Map();
-
-        function parsePrice(priceStr) {
-            if (!priceStr) return 0;
-            if (priceCache.has(priceStr)) {
-                return priceCache.get(priceStr);
-            }
-            const value = parseFloat(priceStr.replace(/[^\d,]/g, '').replace(/,/g, ''));
-            priceCache.set(priceStr, value);
-            return value;
-        }
-
-        function parseDate(dateStr) {
-            if (!dateStr) return 0;
-            if (dateCache.has(dateStr)) {
-                return dateCache.get(dateStr);
-            }
-            try {
-                const cleanDate = dateStr.replace('Sold ', '');
-                const date = new Date(cleanDate);
-                const timestamp = isNaN(date.getTime()) ? 0 : date.getTime();
-                dateCache.set(dateStr, timestamp);
-                return timestamp;
-            } catch (e) {
-                console.error('Error parsing date:', e);
-                dateCache.set(dateStr, 0);
-                return 0;
-            }
-        }
-
-        function initializeDataTable() {
-            if (dataTable) {
-                dataTable.destroy();
-            }
-
-            dataTable = $('#cardTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                searching: false,
-                ajax: {
-                    url: '/api/cards',
-                    type: 'POST',
-                    error: function(xhr, error, thrown) {
-                        $('#error-message').text('Error loading data: ' + (error || 'Unknown error occurred')).show();
-                        console.error('DataTables error:', error);
-                        console.error('Server response:', xhr.responseText);
-                        setTimeout(() => $('#error-message').fadeOut(), 5000);
-                    }
-                },
-                columns: [
-                    { 
-                        data: 'Title',
-                        render: function(data) {
-                            return data ? `<span class="card-title">${data}</span>` : '';
-                        }
-                    },
-                    { 
-                        data: 'Price',
-                        render: function(data, type) {
-                            if (!data) return '';
-                            if (type === 'sort') {
-                                return parsePrice(data);
-                            }
-                            return `<span class="price">${data}</span>`;
-                        }
-                    },
-                    { 
-                        data: 'Link',
-                        render: function(data) {
-                            return data ? `<a href="${data}" target="_blank" class="card-link">View on eBay</a>` : '';
-                        }
-                    },
-                    { 
-                        data: 'Image Link',
-                        render: function(data, type, row) {
-                            return data ? `<img src="${data}" loading="lazy" class="card-image" alt="${row.Title || ''}">` : '';
-                        }
-                    },
-                    {
-                        data: 'Sold Date',
-                        render: function(data, type) {
-                            if (!data) return '';
-                            if (type === 'sort') {
-                                return parseDate(data);
-                            }
-                            return `<span>${data}</span>`;
-                        }
-                    }
-                ],
-                pageLength: 25,
-                order: [[4, 'desc']],
-                responsive: true,
-                deferRender: true,
-                scrollY: 600,
-                scrollCollapse: true,
-                language: {
-                    info: "Showing _START_ to _END_ of _TOTAL_ cards",
-                    infoEmpty: "No cards found",
-                    emptyTable: "No data available",
-                    processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>'
-                },
-                initComplete: function() {
-                    $('#loading').hide();
-                    
-                    // Clear caches periodically to prevent memory bloat
-                    setInterval(() => {
-                        if (priceCache.size > 1000) priceCache.clear();
-                        if (dateCache.size > 1000) dateCache.clear();
-                    }, 300000); // Clear every 5 minutes if needed
-                }
-            });
-        }
-
         $(document).ready(function() {
             $('#loading').show();
-            initializeDataTable();
+            let allButtons = [];
+
+            function filterButtons(searchText) {
+                const searchLower = searchText.toLowerCase();
+                let hasVisibleButtons = false;
+
+                allButtons.forEach(button => {
+                    const buttonText = button.text().toLowerCase();
+                    if (buttonText.includes(searchLower)) {
+                        button.removeClass('hidden');
+                        hasVisibleButtons = true;
+                    } else {
+                        button.addClass('hidden');
+                    }
+                });
+
+                $('#noResults').toggle(!hasVisibleButtons);
+            }
+
+            // Load file list and create buttons
+            fetch('/api/files')
+                .then(response => response.json())
+                .then(files => {
+                    const container = $('#filesContainer');
+                    files.forEach(file => {
+                        const button = $('<button>')
+                            .addClass('file-button')
+                            .text(file)
+                            .click(() => {
+                                window.open(`/player/${encodeURIComponent(file)}`, '_blank');
+                            });
+                        container.append(button);
+                        allButtons.push(button);
+                    });
+                    $('#loading').hide();
+                })
+                .catch(error => {
+                    $('#loading').hide();
+                    $('#error-message').text('Error loading files: ' + error.message).show();
+                });
+
+            // Add search functionality
+            let searchTimeout;
+            $('#searchInput').on('input', function() {
+                const searchText = $(this).val();
+                
+                // Clear previous timeout
+                clearTimeout(searchTimeout);
+                
+                // Set new timeout to avoid too many filter operations
+                searchTimeout = setTimeout(() => {
+                    filterButtons(searchText);
+                }, 200);
+            });
         });
     </script>
 </body>

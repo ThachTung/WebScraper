@@ -108,33 +108,26 @@ def extract_item_data(item):
     return None
 
 def scrape_ebay_page(url, params, session):
-    """Scrape a single eBay page"""
+    """Scrape a single eBay page with optimized performance"""
     try:
         response = session.get(url, params=params, timeout=30)
         response.raise_for_status()
         
-        soup = BeautifulSoup(response.text, 'html.parser')
+        soup = BeautifulSoup(response.text, 'lxml')  # Using lxml parser for better performance
         items = soup.find_all('div', class_='s-item__wrapper clearfix')
-        
+
         if not items:
             return [], False
         
-        items_data = []
-        for item in items[1:]:  # Skip first item as it's usually an ad
-            item_data = extract_item_data(item)
-            if item_data:  # Only append if item_data is not None (meaning it's a soccer card)
-                items_data.append(item_data)
+        # Process items in batch
+        items_data = [
+            item_data for item in items[1:]  # Skip first item as it's usually an ad
+            if (item_data := extract_item_data(item)) is not None
+        ]
         
-        # Check for next page
+        # Simplified pagination check
         next_button = soup.find('a', {'class': 'pagination__next'})
         has_next = next_button is not None and 'disabled' not in next_button.get('class', [])
-        
-        # Additional check for pagination
-        pagination = soup.find('div', {'class': 'pagination'})
-        if pagination and not has_next:
-            current_page = pagination.find('a', {'class': 'pagination__item active'})
-            next_page = current_page.find_next('a', {'class': 'pagination__item'}) if current_page else None
-            has_next = next_page is not None
         
         return items_data, has_next
         
@@ -142,32 +135,25 @@ def scrape_ebay_page(url, params, session):
         print(f"Error scraping page: {e}")
         return [], False
 
-def scrape_ebay_listings(player_name):
-    """Scrape eBay listings for a specific player"""
-    session = get_session()
+def scrape_region_pages(player_name, region_name, region_params, session, start_page, end_page):
+    """Scrape a range of pages for a region"""
     url = "https://www.ebay.com/sch/i.html"
-    
     params = {
         '_from': 'R40',
-        '_nkw': f"{player_name}",  # to search query
-        'LH_PrefLoc': 2,  # International
-        '_sop': 10,       # Newly listed
+        '_nkw': f"{player_name}",
         'LH_Sold': '1',
         'LH_Complete': '1',
-        '_ipg': '240',    # Items per page
+        '_ipg': '240',
         'rt': 'nc',
         '_sacat': '0',
+        **region_params
     }
     
     items_list = []
-    page_number = 0
     max_retries = 3
-    has_next = True
     
-    while has_next:
-        page_number += 1
+    for page_number in range(start_page, end_page + 1):
         params['_pgn'] = page_number
-        
         retry_count = 0
         success = False
         
@@ -176,21 +162,82 @@ def scrape_ebay_listings(player_name):
             
             if items_data:
                 items_list.extend(items_data)
-                print(f"Scraped {len(items_data)} soccer cards from page {page_number} for {player_name}")
+                print(f"Scraped {len(items_data)} cards from page {page_number} for {player_name} in {region_name}")
                 success = True
             else:
                 retry_count += 1
                 if retry_count < max_retries:
-                    time.sleep(2 * retry_count)  # Exponential backoff
-                else:
-                    print(f"Failed to get data after {max_retries} retries for page {page_number}")
-                    has_next = False
-                    break
-        
-        if success:
-            time.sleep(1)  # Small delay between pages
+                    time.sleep(1)  # Reduced sleep time
     
-    print(f"Completed scraping {page_number} pages for {player_name}")
+    return items_list
+
+def scrape_region(player_name, region_name, region_params, session):
+    """Scrape eBay listings for a specific player in a specific region with parallel page processing"""
+    items_list = []
+    max_pages = 5  # Limit maximum pages per region for faster scraping
+    pages_per_batch = 2  # Number of pages to process in parallel
+    
+    with ThreadPoolExecutor(max_workers=pages_per_batch) as page_executor:
+        futures = []
+        for start_page in range(1, max_pages + 1, pages_per_batch):
+            end_page = min(start_page + pages_per_batch - 1, max_pages)
+            future = page_executor.submit(
+                scrape_region_pages,
+                player_name,
+                region_name,
+                region_params,
+                session,
+                start_page,
+                end_page
+            )
+            futures.append(future)
+        
+        for future in as_completed(futures):
+            try:
+                page_items = future.result()
+                items_list.extend(page_items)
+            except Exception as e:
+                print(f"Error in page batch for {region_name}: {e}")
+    
+    return items_list
+
+def scrape_ebay_listings(player_name):
+    """Scrape eBay listings for a specific player across multiple regions with optimized parallel processing"""
+    # Define region-specific parameters with rate limiting
+    regions = {
+        'United States': {'LH_PrefLoc': 1},
+        'Europe': {'LH_PrefLoc': 3},
+        'United Kingdom': {'LH_PrefLoc': 4},
+        'Asia': {'LH_PrefLoc': 5}
+    }
+    
+    items_list = []
+    session = get_session()  # Create a single session for all regions
+    
+    # Process regions in parallel with optimized thread count
+    with ThreadPoolExecutor(max_workers=min(len(regions), 4)) as executor:
+        future_to_region = {
+            executor.submit(
+                scrape_region,
+                player_name,
+                region_name,
+                region_params,
+                session
+            ): region_name
+            for region_name, region_params in regions.items()
+        }
+        
+        # Collect results as they complete
+        for future in as_completed(future_to_region):
+            region_name = future_to_region[future]
+            try:
+                region_items = future.result()
+                if region_items:
+                    items_list.extend(region_items)
+                    print(f"Completed scraping {len(region_items)} items for {player_name} in {region_name}")
+            except Exception as e:
+                print(f"Error scraping {region_name} for {player_name}: {e}")
+    
     return items_list
 
 def save_player_data(player_name, player_items):

@@ -200,5 +200,48 @@ def get_cards():
             'error': str(e)
         }), 500
 
+@app.route('/api/files')
+def get_files():
+    """Get list of available CSV files"""
+    data_dir = os.path.join('soldprice', 'data', 'scrapeddata')
+    try:
+        if not os.path.exists(data_dir):
+            return jsonify([])
+        files = [os.path.splitext(f)[0].replace('_', ' ') for f in os.listdir(data_dir) if f.endswith('.csv')]
+        return jsonify(files)
+    except Exception as e:
+        print(f"Error getting file list: {e}")
+        return jsonify([])
+
+@app.route('/api/cards/<player_name>')
+def get_player_cards(player_name):
+    """Get card data for a specific player"""
+    try:
+        file_name = f"{player_name.replace(' ', '_')}.csv"
+        file_path = os.path.join('soldprice', 'data', 'scrapeddata', file_name)
+        
+        if not os.path.exists(file_path):
+            return jsonify({
+                'error': 'File not found'
+            }), 404
+            
+        df = pd.read_csv(file_path)
+        data = df.to_dict('records')
+        
+        return jsonify({
+            'data': data
+        })
+        
+    except Exception as e:
+        print(f"Error reading player data: {e}")
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@app.route('/player/<player_name>')
+def player_page(player_name):
+    """Render the player-specific page"""
+    return render_template('player.html')
+
 if __name__ == '__main__':
     app.run(debug=True) 
