@@ -20,50 +20,6 @@ retry_strategy = Retry(
 # Create a thread-local storage for sessions
 thread_local = threading.local()
 
-# Define soccer card specific keywords (must have at least one from each category)
-CARD_KEYWORDS = {
-    'card', 'parallel', 'insert', 'rookie', 'rc', 'prizm', 'mosaic', 'select',
-    'donruss', 'panini', 'topps', 'chrome', 'refractor', 'auto', 'numbered'
-}
-
-SOCCER_KEYWORDS = {
-    'soccer', 'football', 'fifa', 'premier league', 'bundesliga', 'la liga',
-    'serie a', 'ligue 1', 'uefa', 'champions league', 'world cup'
-}
-
-# Define keywords to exclude
-EXCLUDE_KEYWORDS = {
-    'baseball', 'basketball', 'nfl', 'nba', 'mlb', 'nhl', 'hockey', 'pokemon',
-    'magic the gathering', 'yugioh', 'jersey', 'shirt', 'boot', 'cleat', 'ball',
-    'video game', 'action figure', 'toy', 'sticker album'
-}
-
-def is_soccer_card(title):
-    """
-    Check if an item is specifically a soccer card
-    Returns True if the item is a soccer card, False otherwise
-    """
-    if not title:
-        return False
-        
-    title_lower = title.lower()
-    
-    # First check for excluded keywords
-    for keyword in EXCLUDE_KEYWORDS:
-        if keyword in title_lower:
-            return False
-    
-    # Check if it contains at least one card-related keyword
-    has_card_keyword = any(keyword in title_lower for keyword in CARD_KEYWORDS)
-    if not has_card_keyword:
-        return False
-    
-    # Check if it contains at least one soccer-related keyword
-    has_soccer_keyword = any(keyword in title_lower for keyword in SOCCER_KEYWORDS)
-    if not has_soccer_keyword:
-        return False
-    
-    return True
 
 def get_session():
     """Get a thread-local session"""
@@ -93,16 +49,13 @@ def extract_item_data(item):
         solddate = item.find('span', class_='s-item__caption--signal POSITIVE')
         
         if all([title, price, link, image_div, solddate]):
-            title_text = title.text
-            # Only return item data if it's specifically a soccer card
-            if is_soccer_card(title_text):
-                return {
-                    'Title': title_text,
-                    'Price': price.text,
-                    'Link': link['href'].split('?')[0],
-                    'Image Link': image_div.find('img').get('src', 'No image URL'),
-                    'Sold Date': solddate.text
-                }
+            return {
+                'Title': title.text,
+                'Price': price.text,
+                'Link': link['href'].split('?')[0],
+                'Image Link': image_div.find('img').get('src', 'No image URL'),
+                'Sold Date': solddate.text
+            }
     except AttributeError:
         pass
     return None
@@ -164,40 +117,50 @@ def scrape_region_pages(player_name, region_name, region_params, session, start_
                 items_list.extend(items_data)
                 print(f"Scraped {len(items_data)} cards from page {page_number} for {player_name} in {region_name}")
                 success = True
-    else:
+            else:
                 retry_count += 1
                 if retry_count < max_retries:
                     time.sleep(1)  # Reduced sleep time
     
-    return items_list
+    return items_list, has_next
 
 def scrape_region(player_name, region_name, region_params, session):
     """Scrape eBay listings for a specific player in a specific region with parallel page processing"""
     items_list = []
-    max_pages = 5  # Limit maximum pages per region for faster scraping
     pages_per_batch = 2  # Number of pages to process in parallel
+    current_page = 1
+    has_more_pages = True
     
-    with ThreadPoolExecutor(max_workers=pages_per_batch) as page_executor:
-        futures = []
-        for start_page in range(1, max_pages + 1, pages_per_batch):
-            end_page = min(start_page + pages_per_batch - 1, max_pages)
+    while has_more_pages:
+        with ThreadPoolExecutor(max_workers=pages_per_batch) as page_executor:
+            futures = []
+            # Process next batch of pages
+            end_page = current_page + pages_per_batch - 1
             future = page_executor.submit(
                 scrape_region_pages,
                 player_name,
                 region_name,
                 region_params,
                 session,
-                start_page,
+                current_page,
                 end_page
             )
             futures.append(future)
-        
-        for future in as_completed(futures):
-            try:
-                page_items = future.result()
-                items_list.extend(page_items)
-            except Exception as e:
-                print(f"Error in page batch for {region_name}: {e}")
+            
+            for future in as_completed(futures):
+                try:
+                    page_items, has_next = future.result()
+                    items_list.extend(page_items)
+                    has_more_pages = has_next
+                    if not has_next:
+                        print(f"No more pages found for {player_name} in {region_name}")
+                except Exception as e:
+                    print(f"Error in page batch for {region_name}: {e}")
+                    has_more_pages = False
+            
+            current_page = end_page + 1
+            if not has_more_pages:
+                break
     
     return items_list
 
@@ -205,10 +168,10 @@ def scrape_ebay_listings(player_name):
     """Scrape eBay listings for a specific player across multiple regions with optimized parallel processing"""
     # Define region-specific parameters with rate limiting
     regions = {
-        'United States': {'LH_PrefLoc': 1},
-        'Europe': {'LH_PrefLoc': 3},
-        'United Kingdom': {'LH_PrefLoc': 4},
-        'Asia': {'LH_PrefLoc': 5}
+        'United States': {'LH_PrefLoc': 4},
+        'Domestic': {'LH_PrefLoc': 1},
+        'International': {'LH_PrefLoc': 2},
+        'Continent': {'LH_PrefLoc': 3}
     }
     
     items_list = []
