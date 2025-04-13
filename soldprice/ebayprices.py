@@ -33,7 +33,7 @@ def get_session():
 def read_player_names():
     """Read player names from player.csv file"""
     try:
-        player_df = pd.read_csv('data/Panini_player_names.csv', header=None, names=['player_name'])
+        player_df = pd.read_csv('data/combined_athletes.csv', header=None, names=['player_name'])
         return player_df['player_name'].tolist()
     except Exception as e:
         print(f"Error reading player.csv: {e}")
@@ -274,7 +274,7 @@ def main():
     # Save combined data
     if all_items:
         # Read existing combined file if it exists
-        combined_file = 'data/scrapeddata/all_players.csv'
+        combined_file = 'data/scrapeddata/00_all_players.csv'
         if os.path.exists(combined_file):
             existing_df = pd.read_csv(combined_file)
             new_df = pd.DataFrame(all_items)

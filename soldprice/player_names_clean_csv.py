@@ -1,3 +1,5 @@
+import re
+
 def clean_csv(file_path):
     try:
         print("Starting CSV cleaning process...")
@@ -24,10 +26,14 @@ def clean_csv(file_path):
         print("Removed commas")
         
         # Step 5: Remove hyphens from each line
-        cleaned_lines = [line.replace('-', '') for line in cleaned_lines]
+        cleaned_lines = [line.replace('-', ' ') for line in cleaned_lines]
         print("Removed hyphens")
         
-        # Step 6: Remove duplicates while preserving order
+        # Step 6: Remove text within parentheses
+        cleaned_lines = [re.sub(r'\(.*?\)', '', line) for line in cleaned_lines]
+        print("Removed text within parentheses")
+        
+        # Step 7: Remove duplicates while preserving order
         seen = set()
         unique_lines = []
         for line in cleaned_lines:
@@ -36,7 +42,7 @@ def clean_csv(file_path):
                 unique_lines.append(line)
         print("Removed duplicates")
         
-        # Step 7: Write the cleaned content back to the file
+        # Step 8: Write the cleaned content back to the file
         with open(file_path, 'w', encoding='utf-8') as file:
             file.writelines(unique_lines)
         
@@ -51,7 +57,7 @@ def clean_csv(file_path):
         print(f"Error processing file {file_path}: {e}")
 
 def main():
-    file_path = r'C:\Users\tungt\Documents\WebScraper\soldprice\data\Panini_player_names.csv'
+    file_path = r'C:\Users\tungt\Documents\WebScraper\soldprice\data\combined_athletes.csv'
     clean_csv(file_path)
 
 if __name__ == "__main__":
