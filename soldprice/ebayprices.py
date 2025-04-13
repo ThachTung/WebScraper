@@ -20,7 +20,6 @@ retry_strategy = Retry(
 # Create a thread-local storage for sessions
 thread_local = threading.local()
 
-
 def get_session():
     """Get a thread-local session"""
     if not hasattr(thread_local, "session"):
@@ -49,13 +48,21 @@ def extract_item_data(item):
         solddate = item.find('span', class_='s-item__caption--signal POSITIVE')
         
         if all([title, price, link, image_div, solddate]):
-            return {
-                'Title': title.text,
-                'Price': price.text,
-                'Link': link['href'].split('?')[0],
-                'Image Link': image_div.find('img').get('src', 'No image URL'),
-                'Sold Date': solddate.text
-            }
+            # List of card manufacturers to filter by
+            card_manufacturers = ['panini', 'topps', 'merlin', 'leaf', 'pro set', 'donruss', 'kaboom']
+            
+            # Convert title to lowercase for case-insensitive comparison
+            title_lower = title.text.lower()
+            
+            # Check if any of the manufacturers are in the title
+            if any(manufacturer in title_lower for manufacturer in card_manufacturers):
+                return {
+                    'Title': title.text,
+                    'Price': price.text,
+                    'Link': link['href'].split('?')[0],
+                    'Image Link': image_div.find('img').get('src', 'No image URL'),
+                    'Sold Date': solddate.text
+                }
     except AttributeError:
         pass
     return None
@@ -83,7 +90,6 @@ def scrape_ebay_page(url, params, session):
         has_next = next_button is not None and 'disabled' not in next_button.get('class', [])
         
         return items_data, has_next
-        
     except Exception as e:
         print(f"Error scraping page: {e}")
         return [], False
@@ -207,7 +213,7 @@ def save_player_data(player_name, player_items):
     """Save player data to CSV, appending if file exists"""
     if not player_items:
         return []
-        
+    
     new_df = pd.DataFrame(player_items)
     player_filename = f"data/scrapeddata/{player_name.replace(' ', '_').lower()}.csv"
     
@@ -230,7 +236,6 @@ def save_player_data(player_name, player_items):
         new_df.to_csv(player_filename, index=False)
         print(f"Created new file {player_filename} with {len(new_df)} soccer cards")
         return player_items
-            
     except Exception as e:
         print(f"Error saving data for {player_name}: {e}")
         return []
@@ -241,7 +246,6 @@ def process_player(player_name):
         print(f"\nProcessing player: {player_name}")
         player_items = scrape_ebay_listings(player_name)
         return save_player_data(player_name, player_items)
-            
     except Exception as e:
         print(f"Error processing player {player_name}: {e}")
         return []
