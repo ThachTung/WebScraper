@@ -274,27 +274,6 @@ def main():
                 all_items.extend(player_items)
             except Exception as e:
                 print(f"Error processing {player_name}: {e}")
-    
-    # Save combined data
-    if all_items:
-        # Read existing combined file if it exists
-        combined_file = 'data/scrapeddata/00_all_players.csv'
-        if os.path.exists(combined_file):
-            existing_df = pd.read_csv(combined_file)
-            new_df = pd.DataFrame(all_items)
-            
-            # Combine and remove duplicates
-            combined_df = pd.concat([existing_df, new_df], ignore_index=True)
-            combined_df = combined_df.drop_duplicates(subset=['Link'], keep='first')
-            
-            # Save updated combined data
-            combined_df.to_csv(combined_file, index=False)
-            print(f"\nUpdated combined file with new soccer cards")
-            print(f"Total combined cards: {len(combined_df)}")
-        else:
-            # Create new combined file
-            pd.DataFrame(all_items).to_csv(combined_file, index=False)
-            print(f"\nCreated new combined file with {len(all_items)} soccer cards")
 
     # Remove duplicates from all scraped files
     remove_duplicates_from_all_files()
