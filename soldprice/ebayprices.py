@@ -49,7 +49,7 @@ def extract_item_data(item):
         
         if all([title, price, link, image_div, solddate]):
             # List of card manufacturers to filter by
-            card_manufacturers = ['panini', 'topps', 'merlin', 'leaf', 'pro set', 'donruss', 'kaboom','daka','fansmall','megacracks','match attax','adrenalyn']
+            card_manufacturers = ['panini', 'topps', 'merlin', 'leaf', 'pro set', 'donruss', 'kaboom']
             
             # Convert title to lowercase for case-insensitive comparison
             title_lower = title.text.lower()
@@ -96,9 +96,9 @@ def scrape_ebay_page(url, params, session):
 
 def scrape_region_pages(player_name, region_name, region_params, session, start_page, end_page):
     """Scrape a range of pages for a region"""
-    url = "https://www.ebay.com/sch/i.html"
-    params = {
-        '_from': 'R40',
+url = "https://www.ebay.com/sch/i.html"
+params = {
+    '_from': 'R40',
         '_nkw': f"{player_name}",
         'LH_Sold': '1',
         'LH_Complete': '1',
@@ -108,7 +108,7 @@ def scrape_region_pages(player_name, region_name, region_params, session, start_
         **region_params
     }
     
-    items_list = []
+items_list = []
     max_retries = 3
     
     for page_number in range(start_page, end_page + 1):
@@ -225,13 +225,13 @@ def save_player_data(player_name, player_items):
             # Remove duplicates based on Link (which should be unique for each item)
             combined_df = pd.concat([existing_df, new_df], ignore_index=True)
             combined_df = combined_df.drop_duplicates(subset=['Link'], keep='first')
-
+            
             # Save combined data
             combined_df.to_csv(player_filename, index=False)
             print(f"Updated {player_filename} with {len(new_df)} new soccer cards")
             print(f"Total cards: {len(combined_df)} (Added: {len(new_df)}, Existing: {len(existing_df)})")
             return combined_df.to_dict('records')
-
+        
         # If file doesn't exist, save new data
         new_df.to_csv(player_filename, index=False)
         print(f"Created new file {player_filename} with {len(new_df)} soccer cards")
@@ -295,29 +295,10 @@ def main():
             # Create new combined file
             pd.DataFrame(all_items).to_csv(combined_file, index=False)
             print(f"\nCreated new combined file with {len(all_items)} soccer cards")
-
-    # Remove duplicates from all scraped files
-    remove_duplicates_from_all_files()
     
     end_time = datetime.now()
     duration = end_time - start_time
     print(f"\nTotal execution time: {duration}")
-
-def remove_duplicates_from_all_files():
-    """Removes duplicate rows based on 'Link' column from all CSV files in the scrapeddata directory."""
-    directory = 'data/scrapeddata'
-    for filename in os.listdir(directory):
-        if filename.endswith(".csv"):
-            filepath = os.path.join(directory, filename)
-            try:
-                df = pd.read_csv(filepath)
-                initial_len = len(df)
-                df = df.drop_duplicates(subset=['Link'], keep='first')
-                final_len = len(df)
-                df.to_csv(filepath, index=False)
-                print(f"Removed {initial_len - final_len} duplicate rows from {filename}")
-            except Exception as e:
-                print(f"Error processing {filename}: {e}")
 
 if __name__ == "__main__":
     main()
